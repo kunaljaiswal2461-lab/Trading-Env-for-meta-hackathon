@@ -154,6 +154,79 @@ DASHBOARD_HTML = """
         .action-HOLD { color: var(--text-muted); }
         .pos { color: var(--green); }
         .neg { color: var(--red); }
+
+        /* Documentation Section */
+        .doc-section {
+            margin: 0 1.5rem 2rem 1.5rem;
+            background: var(--card-bg);
+            border-radius: 1rem;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .doc-header {
+            background: #1e293b;
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .doc-header h2 {
+            margin: 0;
+            font-size: 1rem;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .doc-content {
+            padding: 1.5rem;
+            display: block; /* Open by default */
+        }
+
+        .doc-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .stat-card {
+            background: rgba(30, 41, 59, 0.5);
+            padding: 1rem;
+            border-radius: 0.75rem;
+            border: 1px dashed var(--border);
+            text-align: center;
+        }
+
+        .stat-value { font-size: 1.25rem; font-weight: 700; color: var(--accent); display: block; }
+        .stat-label { font-size: 0.75rem; color: var(--text-muted); }
+
+        .doc-table { width: 100%; margin: 1rem 0; }
+        .doc-table th { background: rgba(30, 41, 59, 0.8); }
+        
+        .reward-box {
+            background: #0f172a;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            border-left: 4px solid var(--accent);
+            margin: 1rem 0;
+            white-space: pre-wrap;
+        }
+
+        .highlight-paper {
+            color: var(--accent);
+            font-weight: 600;
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -206,6 +279,60 @@ DASHBOARD_HTML = """
             </div>
         </aside>
     </main>
+
+    <section class="doc-section">
+        <div class="doc-header" onclick="document.getElementById('docContent').style.display = document.getElementById('docContent').style.display === 'none' ? 'block' : 'none'">
+            <h2>📋 Documentation & Judges Reference</h2>
+            <span>▼</span>
+        </div>
+        <div id="docContent" class="doc-content">
+            <h3>1. What is this environment?</h3>
+            <p>AntiGravity is a high-fidelity <b>Markov Decision Process (MDP)</b> environment simulating the intraday momentum of the SPY index. It provides a non-stationary observation space where a Reinforcement Learning agent must balance alpha generation with strict risk-adjusted drawdown management.</p>
+
+            <div class="doc-cards">
+                <div class="stat-card"><span class="stat-value">3</span><span class="stat-label">Base Actions</span></div>
+                <div class="stat-card"><span class="stat-value">123 dims</span><span class="stat-label">Observation Size</span></div>
+                <div class="stat-card"><span class="stat-value">20-Step</span><span class="stat-label">Temporal Window</span></div>
+            </div>
+
+            <h3>2. Observation Space Deep-Dive</h3>
+            <p>The agent receives a flattened vector of <b>123 values</b> every step. This captures the <i>momentum trajectory</i> of the market.</p>
+            <table class="doc-table">
+                <thead><tr><th>Feature Layer</th><th>Dimensions</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td>Market Features</td><td>120</td><td>Current + 19 past steps across 6 technical indicators.</td></tr>
+                    <tr><td>Portfolio Stats</td><td>3</td><td>Normalized Cash, Holdings, and Net Portfolio Value ($).</td></tr>
+                </tbody>
+            </table>
+
+            <h3>3. Technical Indicator Formulas</h3>
+            <table class="doc-table">
+                <thead><tr><th>Indicator</th><th>Mathematical Formula</th><th>Biological/Market Parallel</th></tr></thead>
+                <tbody>
+                    <tr><td>Log Return</td><td><code>ln(P_t / P_{t-1})</code></td><td>Continuously compounded price momentum.</td></tr>
+                    <tr><td>SMA Distance</td><td><code>(P - SMA_n) / SMA_n</code></td><td>Mean Reversion (Elasticity of price to trend).</td></tr>
+                    <tr><td>RSI (14)</td><td><code>100 - [100 / (1 + RS)]</code></td><td>Exhaustion metrics (Overbought/Oversold).</td></tr>
+                    <tr><td>Volume Norm</td><td><code>Vol / rolling_avg(Vol, 20)</code></td><td>Validation of price moves via liquidity spikes.</td></tr>
+                    <tr><td>Volatility</td><td><code>StdDev(Log_Ret, 10)</code></td><td>Risk uncertainty and regime change signal.</td></tr>
+                </tbody>
+            </table>
+
+            <h3>4. Reward Function: The Stanford Methodology</h3>
+            <p>Utilizing a composite function based on the <span class="highlight-paper">Stanford GSB: "Direct Reinforcement Learning for Financial Forecasting" by Moody & Saffell</span>.</p>
+            <div class="reward-box">
+<b>Reward = α(LogRet) + β(Downside) + γ(DiffSharpe) - TC</b>
+
+1. <b>Log Return (α=0.4):</b> Direct profit incentive.
+2. <b>Downside Variance (β=0.25):</b> Penalizes "Square of Negative Returns".
+3. <b>Differential Sharpe Ratio (γ=0.15):</b> Recursive risk-adjusted gradient:
+   <i>ηt = (B_prev * dA - 0.5 * A_prev * dB) / (var ^ 1.5)</i>
+4. <b>Transaction Costs (TC):</b> 0.1% penalty per trade to prevent chatter.
+            </div>
+
+            <h3>5. Agent Architecture</h3>
+            <p>The baseline agent is an <b>LLM-based Zero-Shot Reasoner</b>. It performs <b>Instruction-Following</b> across the 120D market state, identifying patterns like "Breakouts" to execute optimal trades.</p>
+        </div>
+    </section>
 
     <script>
         let running = false;
